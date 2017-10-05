@@ -21,41 +21,19 @@
 #define OPCODE_MASK (0xE0)
 #define PARAM_MASK (0x1F)
 
+#define DUTY_CYCLE 414
+
 // Examples of simple recipes
 // Note that, because the bottom 5 bits are zeros adding or bitwise or'ing
 // in the values for the bottom 5 bits are equivalent. However, using a bitwise
 // or is better at communicating your purpose.
-unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
+//unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
+unsigned char recipe1[] = { LOOP | 5, MOV + 5, MOV + 0, END_LOOP, RECIPE_END } ;
 unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 
 // If you set up an array like this then you can easily switch recipes
 // using an additional user input command.
 unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
-
-void parse_command( unsigned char command ){
-	
-	// Extract op-code and parameter from instruction
-	unsigned char opcode = command & OPCODE_MASK ;
-	unsigned char param = command & PARAM_MASK ;
-	
-	switch(opcode){
-		case MOV:
-			process_instruction( command, param ) ;
-			break ;
-		case WAIT:
-			break ;
-		case LOOP:
-			break ;
-		case END_LOOP:
-			break ;
-		case RECIPE_END:
-			break ;
-		default:
-			// invalid opcode, go to error state
-			break ;
-	}
-	
-}
 
 void timer_init() {
 	
@@ -72,11 +50,11 @@ void timer_init() {
 	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;
 	
 	// Max count
-	TIM2->ARR = 414 ;
+	TIM2->ARR = DUTY_CYCLE ;
 	
 	// Set the timer prescalar value
 	// This value will set the PWM to 20ms periods
-	TIM2->PSC =  100; //Clock frequencies in MHz
+	TIM2->PSC =  200; //Clock frequencies in MHz
 	
 	// Load new prescalar value by forcing update event.
 	TIM2->EGR |= TIM_EGR_UG;
@@ -90,12 +68,14 @@ void timer_init() {
 	// Enable input capture
 	TIM2->CCER |= TIM_CCER_CC1E ;
 	
+	// Clear update flag
 	TIM2->SR &= ~TIM_SR_UIF ;
+	
 	TIM2->DIER |= TIM_DIER_UIE ;
 	TIM2->CR1 |= TIM_CR1_CEN ;
 	
 	//Initialize with 50% duty cycle
-	TIM2->CCR1 = 208 ;
+	TIM2->CCR1 = DUTY_CYCLE * (0.02) ;
 }
 
 
@@ -103,13 +83,22 @@ void timer_init() {
 // A simple main that just prints out the hex value of the first entry in each recipe.
 int main() {
 	
+	int index = 0 ;
+	
 	timer_init() ;
 	
-	/*
-	int i = 0 ;
+	LED_Init( );
+	UART2_Init( );
 	
-	while ( recipe1[ i ] != RECIPE_END ) {
-		printf( "%02x\n", *recipes[ i++ ] ) ;	// printf first hex entry of each recipe
+	while( recipe1[index] != RECIPE_END ) {
+		
+		// Extract op-code and parameter from instruction
+		unsigned char opcode = recipe1[index] & OPCODE_MASK ;
+		unsigned char param = recipe1[index] & PARAM_MASK ;
+		
+		index = process_instruction( opcode, param, index ) ;
+		
 	}
-	*/
+	
+	
 }

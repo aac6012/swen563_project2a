@@ -34,4 +34,4 @@ enum events {
 
 
 void process_event( enum events one_event ) ;
-void process_instruction( unsigned char op_code, unsigned char param ) ;
+int process_instruction( unsigned char op_code, unsigned char param, int recipe_index ) ;
