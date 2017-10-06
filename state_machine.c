@@ -3,16 +3,7 @@
 
 #include "state_machine.h"
 #include "stm32l476xx.h"
-
-// Define all of the commands that are valid
-#define MOV (0x20)
-#define WAIT (0x40)
-#define LOOP (0x80)
-#define END_LOOP (0xA0)
-#define RECIPE_END (0x00)
-
-#define DUTY_CYCLE 414
-#define NOT_IN_LOOP 32
+#include "globals.h"
 
 // Define a "global" state value that is only accessible in one .c module (static makes it "private").
 // Define the initial state as paused.
@@ -22,10 +13,10 @@ static enum servo_states saved_servo_state = state_unknown ;
 static unsigned char loop_flag = NOT_IN_LOOP ;
 static int loop_index = 0 ;
 
-// Code to start the move (adjust PWM) and start the timing delay based on the
-// current position.
-static void start_move( enum servo_states new_state ) {
-	// TBD
+void start_move( Servo* servo, int current_position, int target_position ){
+	
+	
+	
 }
 
 int process_instruction( unsigned char op_code, unsigned char param, int recipe_index ){
@@ -88,7 +79,7 @@ int process_instruction( unsigned char op_code, unsigned char param, int recipe_
 }
 
 
-void process_event( enum events one_event ) {
+void process_user_event( enum events one_event ) {
 	
 	// state-independent events
 	if(one_event == user_entered_pause ){

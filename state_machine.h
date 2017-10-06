@@ -1,3 +1,5 @@
+#include "stm32l476xx.h"
+
 // This is a good way to define the status of the display.
 enum status {
 	status_running,
@@ -33,5 +35,14 @@ enum events {
 } ;
 
 
-void process_event( enum events one_event ) ;
+typedef struct Servo {
+	(TIM_TypeDef *) timer ;
+	int recipe_index ; 
+	servo_states state ;
+}
+
+
+void process_user_event( enum events one_event ) ;
 int process_instruction( unsigned char op_code, unsigned char param, int recipe_index ) ;
+void start_move( Servo* servo, int current_position, int target_position ) ;
+

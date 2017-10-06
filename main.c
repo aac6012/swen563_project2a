@@ -6,22 +6,10 @@
 #include "LED.h"
 #include "UART.h"
 #include "state_machine.h"
+#include "globals.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-
-// Define all of the commands that are valid
-#define MOV (0x20)
-#define WAIT (0x40)
-#define LOOP (0x80)
-#define END_LOOP (0xA0)
-#define RECIPE_END (0x00)
-
-// Define useful masks
-#define OPCODE_MASK (0xE0)
-#define PARAM_MASK (0x1F)
-
-#define DUTY_CYCLE 414
 
 // Examples of simple recipes
 // Note that, because the bottom 5 bits are zeros adding or bitwise or'ing
@@ -40,6 +28,11 @@ void timer_init() {
 	// Enable GPIO A clock
 	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN ;
 	
+	
+	/**
+	* GPIO PA0 / TIM2 setup
+	*/
+	// Set GPIO PA0 mode to Alternate Function
 	GPIOA->MODER &= ~(0x03) ;
 	GPIOA->MODER |= 0x02 ;
 	
@@ -74,8 +67,51 @@ void timer_init() {
 	TIM2->DIER |= TIM_DIER_UIE ;
 	TIM2->CR1 |= TIM_CR1_CEN ;
 	
-	//Initialize with 50% duty cycle
+	//Initialize with 2% duty cycle
 	TIM2->CCR1 = DUTY_CYCLE * (0.02) ;
+	
+	
+	/**
+	* GPIO PA1 / TIM5 setup
+	*/
+	// Set GPIO PA1 mode to Alternate Function
+	GPIOA->MODER &= ~(0x03 << 2) ;
+	GPIOA->MODER |= (0x02 << 2) ;
+	
+	// Set GPIO A pin1 to alternate function to AF2
+	GPIOA->AFR[1] |= 0x02 ;
+	
+	// Enable Timer 5 clock
+	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM5EN;
+	
+	// Max count
+	TIM5->ARR = DUTY_CYCLE ;
+	
+	// Set the timer prescalar value
+	// This value will set the PWM to 20ms periods
+	TIM5->PSC =  200; //Clock frequencies in MHz
+	
+	// Load new prescalar value by forcing update event.
+	TIM5->EGR |= TIM_EGR_UG;
+	
+	// Set the input mode of the Timer (Input, CC1 is mapped to timer input 1)
+	TIM5->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2 ;
+	TIM5->CCMR1 |= TIM_CCMR1_OC1PE ;
+	
+	TIM5->CR1 |= TIM_CR1_ARPE ;
+	
+	// Enable input capture
+	TIM5->CCER |= TIM_CCER_CC1E ;
+	
+	// Clear update flag
+	TIM5->SR &= ~TIM_SR_UIF ;
+	
+	TIM5->DIER |= TIM_DIER_UIE ;
+	TIM5->CR1 |= TIM_CR1_CEN ;
+	
+	//Initialize with 2% duty cycle
+	TIM5->CCR1 = DUTY_CYCLE * (0.02) ;
+	
 }
 
 
@@ -86,6 +122,9 @@ int main() {
 	int index = 0 ;
 	
 	timer_init() ;
+	Servo *servo1, *servo2 ;
+	
+	
 	
 	LED_Init( );
 	UART2_Init( );
