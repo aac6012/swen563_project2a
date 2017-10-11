@@ -120,10 +120,9 @@ void timer_init() {
 int main() {
 	
 	int index = 0 ;
-	
-	timer_init() ;
 	Servo *servo1, *servo2 ;
 	
+	timer_init() ;
 	
 	
 	LED_Init( );
@@ -135,7 +134,7 @@ int main() {
 		unsigned char opcode = recipe1[index] & OPCODE_MASK ;
 		unsigned char param = recipe1[index] & PARAM_MASK ;
 		
-		index = process_instruction( opcode, param, index ) ;
+		process_instruction( servo1, opcode, param ) ;
 		
 	}
 	

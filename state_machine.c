@@ -5,21 +5,16 @@
 #include "stm32l476xx.h"
 #include "globals.h"
 
-// Define a "global" state value that is only accessible in one .c module (static makes it "private").
-// Define the initial state as paused.
-static enum servo_states current_servo_state = state_unknown ;
-static enum servo_states saved_servo_state = state_unknown ;
-
 static unsigned char loop_flag = NOT_IN_LOOP ;
 static int loop_index = 0 ;
 
-void start_move( Servo* servo, int current_position, int target_position ){
+void start_move( Servo* servo, enum servo_states target_position ){
 	
 	
 	
 }
 
-int process_instruction( unsigned char op_code, unsigned char param, int recipe_index ){
+void process_instruction( Servo* servo, unsigned char op_code, unsigned char param ){
 	
 	switch(op_code){
 		case MOV:
@@ -28,7 +23,7 @@ int process_instruction( unsigned char op_code, unsigned char param, int recipe_
 			} else{
 				// Set duty cycle to match specified position
 				TIM2->CCR1 = DUTY_CYCLE * (0.02 * (1 + param) ) ;
-				recipe_index ++ ;
+				servo->recipe_index ++ ;
 			}
 			break ;
 		case WAIT:
@@ -44,7 +39,7 @@ int process_instruction( unsigned char op_code, unsigned char param, int recipe_
 						TIM2->SR &= ~TIM_SR_UIF ;
 					}
 				}
-				recipe_index ++ ;
+				servo->recipe_index ++ ;
 			}
 			break ;
 		case LOOP:
@@ -54,19 +49,19 @@ int process_instruction( unsigned char op_code, unsigned char param, int recipe_
 				// param error
 			} else{
 				loop_flag = param ;
-				recipe_index++ ;
-				loop_index = recipe_index ;
+				servo->recipe_index++ ;
+				loop_index = servo->recipe_index ;
 			}
 			break ;
 		case END_LOOP:
 			if( loop_flag == NOT_IN_LOOP ){
 				// end_loop without loop
 			} else if(loop_flag != 0){
-				recipe_index = loop_index ;
+				servo->recipe_index = loop_index ;
 				loop_flag -- ;
 			} else{
 				// Done with loop
-				recipe_index ++ ;
+				servo->recipe_index ++ ;
 				loop_flag = NOT_IN_LOOP ;
 			}
 			break ;
@@ -74,79 +69,86 @@ int process_instruction( unsigned char op_code, unsigned char param, int recipe_
 			break ;
 	}
 	
-	return recipe_index ;
-	
 }
 
 
-void process_user_event( enum events one_event ) {
+void process_user_event( Servo* servo, enum events one_event ) {
 	
 	// state-independent events
 	if(one_event == user_entered_pause ){
 		
 	} else {	// state-dependent events
 		
-		switch ( current_servo_state ) {
+		switch ( servo->state ) {
 			case state_position_0 :		// right-most position
 				if ( one_event == user_entered_left ) {
-					start_move( state_position_1 ) ;
-					current_servo_state = state_moving ;		// when the move ends (enough time has elapsed) new state will be state_position_1
+					start_move( servo, state_position_1 ) ;
 				}
 				break ;
 			case state_position_1 :
 				if ( one_event == user_entered_left ) {
-					start_move( state_position_2 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_2 ) ;
 				} else if ( one_event == user_entered_right ) {
-					start_move( state_position_0 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_0 ) ;
 				}
 				break;
 			case state_position_2 :
 				if ( one_event == user_entered_left ) {
-					start_move( state_position_3 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_3 ) ;
 				} else if ( one_event == user_entered_right ) {
-					start_move( state_position_1 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_1 ) ;
 				}
 				break ;
 			case state_position_3 :
 				if ( one_event == user_entered_left ) {
-					start_move( state_position_4 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_4 ) ;
 				} else if ( one_event == user_entered_right ) {
-					start_move( state_position_2 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_2 ) ;
 				}
 				break ;
 			case state_position_4 :
 				if ( one_event == user_entered_left ) {
-					start_move( state_position_5 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_5 ) ;
 				} else if ( one_event == user_entered_right ) {
-					start_move( state_position_3 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_3 ) ;
 				}
 				break ;
 			case state_position_5 : // left-most position
 				if ( one_event == user_entered_right ) {
-					start_move( state_position_4 ) ;
-					current_servo_state = state_moving ;
+					start_move( servo, state_position_4 ) ;
 				}
 				break ;
-			case state_moving :			
-				break ;
-			case state_recipe_paused:
-				if ( one_event == user_entered_continue ){
-					
-				}
 			case state_unknown :
-				break ;
-			case state_recipe_ended :
 				break ;
 		}
 		
 	}
+	
+}
+
+
+
+int servo_state_to_int( enum servo_states state ){
+	int servo_int ;
+	switch(state){
+		case state_position_0:
+			servo_int = 0 ;
+		case state_position_1:
+			servo_int = 1 ;
+		case state_position_2:
+			servo_int = 2 ;
+		case state_position_3:
+			servo_int = 3 ;
+		case state_position_4:
+			servo_int = 4 ;
+		case state_position_5:
+			servo_int = 5 ;
+		case state_unknown:
+		default:
+			servo_int = 0 ;
+			break ;
+	}
+	
+	return servo_int ;
 	
 }

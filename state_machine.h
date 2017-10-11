@@ -4,6 +4,7 @@
 enum status {
 	status_running,
 	status_paused,
+	status_ended,
 	status_command_error,
 	status_nested_error 
 } ;
@@ -16,10 +17,7 @@ enum servo_states {
 	state_position_3,
 	state_position_4,
 	state_position_5,
-	state_unknown,
-	state_moving,
-	state_recipe_paused,
-	state_recipe_ended
+	state_unknown
 } ;
 
 // This is a good way to define the event transitions between states.
@@ -30,19 +28,21 @@ enum events {
 	user_entered_pause,
 	user_entered_continue,
 	user_entered_restart,
-	user_enetered_no_op,
-	recipe_ended
+	user_entered_no_op
 } ;
 
 
-typedef struct Servo {
-	(TIM_TypeDef *) timer ;
-	int recipe_index ; 
-	servo_states state ;
-}
+typedef struct {
+	TIM_TypeDef *timer ;		// The PWM timer in charge of controlling servo output signal
+	int delay_counter ;			// Delay counter used for WAIT and between servo movements
+	int recipe_index ; 			// Current index of the executing recipe
+	enum servo_states state ;	// Current state of the servo
+	unsigned char *recipe ;		// Recipe being executed by servo
+	int is_paused ;				// If the recipe is paused
+} Servo ;
 
 
-void process_user_event( enum events one_event ) ;
-int process_instruction( unsigned char op_code, unsigned char param, int recipe_index ) ;
-void start_move( Servo* servo, int current_position, int target_position ) ;
-
+void process_user_event( Servo* servo, enum events one_event ) ;
+void process_instruction( Servo* servo, unsigned char op_code, unsigned char param ) ;
+void start_move( Servo* servo, enum servo_states target_position ) ;
+int servo_state_to_int( enum servo_states state ) ;
