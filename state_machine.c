@@ -22,7 +22,7 @@ void process_instruction( Servo* servo, unsigned char op_code, unsigned char par
 				//error
 			} else{
 				// Set duty cycle to match specified position
-				TIM2->CCR1 = DUTY_CYCLE * (0.02 * (1 + param) ) ;
+				servo->timer->CCR1 = DUTY_CYCLE * (0.02 * (1 + param) ) ;
 				servo->recipe_index ++ ;
 			}
 			break ;
@@ -32,11 +32,11 @@ void process_instruction( Servo* servo, unsigned char op_code, unsigned char par
 			} else{
 				// Wait for given time (param * 1/10) seconds
 				unsigned char flag_count = 0 ;
-				TIM2->SR &= ~TIM_SR_UIF ;
+				servo->timer->SR &= ~TIM_SR_UIF ;
 				while(flag_count < (5 * (param + 1) ) ){
-					if( (TIM2->SR && TIM_SR_UIF) == TIM_SR_UIF ){
+					if( (servo->timer->SR && TIM_SR_UIF) == TIM_SR_UIF ){
 						flag_count++ ;
-						TIM2->SR &= ~TIM_SR_UIF ;
+						servo->timer->SR &= ~TIM_SR_UIF ;
 					}
 				}
 				servo->recipe_index ++ ;

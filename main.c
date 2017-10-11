@@ -7,6 +7,7 @@
 #include "UART.h"
 #include "state_machine.h"
 #include "globals.h"
+#include "main.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,7 +24,7 @@ unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 // using an additional user input command.
 unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
 
-void timer_init() {
+void servo_timers_init() {
 	
 	// Enable GPIO A clock
 	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN ;
@@ -114,20 +115,52 @@ void timer_init() {
 	
 }
 
+void init_master_timer(){
+	// Master timer controls timing of recipe execution (every 100ms)
+	
+	// Initialize timer with 001 Output Compare Mode
+	// This will set the Timer Output to 1 when Count equals 
+	
+	
+	
+}
+
+
+void init_servo( Servo *servo ){
+	
+	servo->recipe_index = 0 ;
+	servo->is_paused = 1 ;
+	
+	start_move( servo, state_position_5 ) ;
+	
+}
+
 
 
 // A simple main that just prints out the hex value of the first entry in each recipe.
 int main() {
 	
 	int index = 0 ;
-	Servo *servo1, *servo2 ;
 	
-	timer_init() ;
+	//Initialize servo structs
+	Servo *servo1, *servo2 ;
+	init_servo(servo1) ;
+	init_servo(servo2) ;
+	
+	//Initialize servo timers
+	servo_timers_init() ;
+	servo1->timer = TIM2 ;
+	servo2->timer = TIM5 ;
+	
+	//Initialize master timer (100ms period)
+	init_master_timer() ;
+	
 	
 	
 	LED_Init( );
 	UART2_Init( );
 	
+	/*
 	while( recipe1[index] != RECIPE_END ) {
 		
 		// Extract op-code and parameter from instruction
@@ -135,6 +168,31 @@ int main() {
 		unsigned char param = recipe1[index] & PARAM_MASK ;
 		
 		process_instruction( servo1, opcode, param ) ;
+		
+	}
+	*/
+	
+	while(1){
+		/* pseudocode:
+		get user input
+		if (master_timer->output == 1){
+			process user input
+			
+			decrement servo delay counters
+			
+			if(servo1 is not paused && servo1->delay_counter == 0){
+				process next servo1 instruction
+			}
+			if(servo2 is not paused && servo2->delay_counter == 0){
+				process next servo2 instruction
+			}
+			
+			handle LED's for servo1 status here.
+			
+		}
+		
+		*/
+		
 		
 	}
 	
