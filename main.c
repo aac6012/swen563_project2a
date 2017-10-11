@@ -24,6 +24,10 @@ unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 // using an additional user input command.
 unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
 
+// UART output buffer
+uint8_t buffer[BufferSize];
+
+
 void servo_timers_init() {
 	
 	// Enable GPIO A clock
@@ -70,6 +74,13 @@ void servo_timers_init() {
 	
 	//Initialize with 2% duty cycle
 	TIM2->CCR1 = DUTY_CYCLE * (0.02) ;
+	
+	TIM2->CCR1 = DUTY_CYCLE * (0.04) ;
+	TIM2->CCR1 = DUTY_CYCLE * (0.06) ;
+	TIM2->CCR1 = DUTY_CYCLE * (0.08) ;
+	TIM2->CCR1 = DUTY_CYCLE * (0.10) ;
+	TIM2->CCR1 = DUTY_CYCLE * (0.12) ;
+	
 	
 	
 	/**
@@ -129,6 +140,8 @@ void init_master_timer(){
 void init_servo( Servo *servo ){
 	
 	servo->recipe_index = 0 ;
+	servo->loop_count = NOT_IN_LOOP ;
+	servo->loop_index = 0 ;
 	servo->is_paused = 1 ;
 	
 	start_move( servo, state_position_5 ) ;
@@ -140,7 +153,9 @@ void init_servo( Servo *servo ){
 // A simple main that just prints out the hex value of the first entry in each recipe.
 int main() {
 	
-	int index = 0 ;
+	char rxByte ;
+	
+	//int index = 0 ;
 	
 	//Initialize servo structs
 	Servo *servo1, *servo2 ;
@@ -155,24 +170,34 @@ int main() {
 	//Initialize master timer (100ms period)
 	init_master_timer() ;
 	
-	
-	
 	LED_Init( );
 	UART2_Init( );
 	
-	/*
-	while( recipe1[index] != RECIPE_END ) {
+	while( recipe1[servo1->recipe_index] != RECIPE_END ) {
 		
 		// Extract op-code and parameter from instruction
-		unsigned char opcode = recipe1[index] & OPCODE_MASK ;
-		unsigned char param = recipe1[index] & PARAM_MASK ;
+		unsigned char opcode = recipe1[servo1->recipe_index] & OPCODE_MASK ;
+		unsigned char param = recipe1[servo1->recipe_index] & PARAM_MASK ;
 		
 		process_instruction( servo1, opcode, param ) ;
 		
 	}
-	*/
+	
 	
 	while(1){
+		
+		// Print limits and see if user wants to change them
+		sprintf( (char *)buffer, "Enter Command >") ;
+		USART_Write( USART2, buffer, strlen( (char *)buffer ) ) ;
+		rxByte = 0x00 ;
+		while(rxByte != 0x0D) { // Wait until user presses enter
+			rxByte = USART_Read( USART2 ) ;
+			USART_Write(USART2, (uint8_t *)&rxByte, 1 ) ;
+		}
+		USART_Write( USART2, (uint8_t *)"\r\n", 2 );
+		rxByte = 0x00 ;
+		
+		
 		/* pseudocode:
 		get user input
 		if (master_timer->output == 1){
@@ -188,6 +213,8 @@ int main() {
 			}
 			
 			handle LED's for servo1 status here.
+		
+			clear timer flag
 			
 		}
 		

@@ -5,16 +5,24 @@
 #include "stm32l476xx.h"
 #include "globals.h"
 
-static unsigned char loop_flag = NOT_IN_LOOP ;
-static int loop_index = 0 ;
-
 void start_move( Servo* servo, enum servo_states target_position ){
 	
+	// Calculate the number of positions being moved.
+	int offset = abs( servo_state_to_int(servo->position ) - servo_state_to_int(target_position) ) ;
+	
+	// The recipe timer runs at 100ms, 1 position takes about 200ms.
+	// So, 2*offset will give the necessary wait time for the length being travelled.
+	servo->delay_counter = 2*offset ;
 	
 	
 }
 
 void process_instruction( Servo* servo, unsigned char op_code, unsigned char param ){
+	
+	// Don't process instructions in these states.
+	if( servo->status == status_paused || servo->status == status_command_error || servo->status == status_nested_error ) {
+		return ;
+	}
 	
 	switch(op_code){
 		case MOV:
@@ -30,39 +38,34 @@ void process_instruction( Servo* servo, unsigned char op_code, unsigned char par
 			if(param > 31){
 				//error
 			} else{
-				// Wait for given time (param * 1/10) seconds
-				unsigned char flag_count = 0 ;
-				servo->timer->SR &= ~TIM_SR_UIF ;
-				while(flag_count < (5 * (param + 1) ) ){
-					if( (servo->timer->SR && TIM_SR_UIF) == TIM_SR_UIF ){
-						flag_count++ ;
-						servo->timer->SR &= ~TIM_SR_UIF ;
-					}
-				}
+				
+				// master recipe timer is at 100ms, so 1 wait command = 1 timer cycle
+				servo->delay_counter = 1 + param ;
+				
 				servo->recipe_index ++ ;
 			}
 			break ;
 		case LOOP:
-			if(loop_flag != NOT_IN_LOOP ){
+			if(servo->loop_count != NOT_IN_LOOP ){
 				// nested loop error
 			} else if (param > 31){
 				// param error
 			} else{
-				loop_flag = param ;
+				servo->loop_count = param ;
 				servo->recipe_index++ ;
-				loop_index = servo->recipe_index ;
+				servo->loop_index = servo->recipe_index ;
 			}
 			break ;
 		case END_LOOP:
-			if( loop_flag == NOT_IN_LOOP ){
+			if( servo->loop_count == NOT_IN_LOOP ){
 				// end_loop without loop
-			} else if(loop_flag != 0){
-				servo->recipe_index = loop_index ;
-				loop_flag -- ;
+			} else if( servo->loop_count != 0 ){
+				servo->recipe_index = servo->loop_index ;
+				servo->loop_count -- ;
 			} else{
 				// Done with loop
 				servo->recipe_index ++ ;
-				loop_flag = NOT_IN_LOOP ;
+				servo->loop_count = NOT_IN_LOOP ;
 			}
 			break ;
 		case RECIPE_END:
@@ -79,7 +82,7 @@ void process_user_event( Servo* servo, enum events one_event ) {
 		
 	} else {	// state-dependent events
 		
-		switch ( servo->state ) {
+		switch ( servo->position ) {
 			case state_position_0 :		// right-most position
 				if ( one_event == user_entered_left ) {
 					start_move( servo, state_position_1 ) ;
