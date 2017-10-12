@@ -132,7 +132,26 @@ void init_master_timer(){
 	// Initialize timer with 001 Output Compare Mode
 	// This will set the Timer Output to 1 when Count equals 
 	
+	// Enable Timer 3 clock
+	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
 	
+	// Set prescalar to ?
+	TIM3->PSC = 100 ;
+	
+	// Load new prescalar value by forcing update event.
+	TIM3->EGR |= TIM_EGR_UG;
+	
+	// Set auto reload value
+	TIM3->ARR = 100 ;
+	
+	// Enable timer interrupts
+	TIM3->DIER = TIM_DIER_UIE ;
+	
+	// Enable timer
+	TIM3->CR1 = TIM_CR1_CEN ;
+	
+	// Enable interrupt in NVIC
+	NVIC_EnableIRQ(TIM3_IRQn) ;
 	
 }
 
@@ -146,6 +165,21 @@ void init_servo( Servo *servo ){
 	
 	start_move( servo, state_position_5 ) ;
 	
+}
+
+
+// Timer 3 interrupt handler
+void TIM3_IRQHandler(void) {
+	// Check if interrupt flag is set
+	if(TIM3->SR & TIM_SR_UIF) { 
+		// Clear interrupt flag
+		TIM3->SR &= ~TIM_SR_UIF ;
+		
+		/*
+		TODO: handle recipe execution here?
+		*/
+		
+	}
 }
 
 
