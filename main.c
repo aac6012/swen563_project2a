@@ -17,16 +17,24 @@
 // in the values for the bottom 5 bits are equivalent. However, using a bitwise
 // or is better at communicating your purpose.
 //unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
-unsigned char recipe1[] = { LOOP | 5, MOV + 5, MOV + 0, END_LOOP, RECIPE_END } ;
+unsigned char recipe1[] = { MOV + 5, WAIT | 1, MOV + 0, END_LOOP, RECIPE_END } ;
 unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 
 // If you set up an array like this then you can easily switch recipes
 // using an additional user input command.
 unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
 
+// Servo structs
+volatile Servo *servo1, *servo2 ;
+
+// UART output messages
+char prompt[] = "Enter Command >" ;
+
 // UART output buffer
 uint8_t buffer[BufferSize];
 
+// Input string from user through UART (two characters max)
+char inputString[2] ;
 
 void servo_timers_init() {
 	
@@ -52,7 +60,7 @@ void servo_timers_init() {
 	
 	// Set the timer prescalar value
 	// This value will set the PWM to 20ms periods
-	TIM2->PSC =  200; //Clock frequencies in MHz
+	TIM2->PSC =  4000;
 	
 	// Load new prescalar value by forcing update event.
 	TIM2->EGR |= TIM_EGR_UG;
@@ -75,14 +83,6 @@ void servo_timers_init() {
 	//Initialize with 2% duty cycle
 	TIM2->CCR1 = DUTY_CYCLE * (0.02) ;
 	
-	TIM2->CCR1 = DUTY_CYCLE * (0.04) ;
-	TIM2->CCR1 = DUTY_CYCLE * (0.06) ;
-	TIM2->CCR1 = DUTY_CYCLE * (0.08) ;
-	TIM2->CCR1 = DUTY_CYCLE * (0.10) ;
-	TIM2->CCR1 = DUTY_CYCLE * (0.12) ;
-	
-	
-	
 	/**
 	* GPIO PA1 / TIM5 setup
 	*/
@@ -91,7 +91,8 @@ void servo_timers_init() {
 	GPIOA->MODER |= (0x02 << 2) ;
 	
 	// Set GPIO A pin1 to alternate function to AF2
-	GPIOA->AFR[1] |= 0x02 ;
+	//GPIOA->AFR[0] &= ~(0x0F << 4) ;
+	GPIOA->AFR[0] |= (0x02 << 4) ;
 	
 	// Enable Timer 5 clock
 	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM5EN;
@@ -101,14 +102,15 @@ void servo_timers_init() {
 	
 	// Set the timer prescalar value
 	// This value will set the PWM to 20ms periods
-	TIM5->PSC =  200; //Clock frequencies in MHz
+	TIM5->PSC =  4000; 
 	
 	// Load new prescalar value by forcing update event.
 	TIM5->EGR |= TIM_EGR_UG;
 	
 	// Set the input mode of the Timer (Input, CC1 is mapped to timer input 1)
-	TIM5->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2 ;
-	TIM5->CCMR1 |= TIM_CCMR1_OC1PE ;
+	//TIM5->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2 ;
+	TIM5->CCMR1 |= TIM_CCMR1_OC2M_2 | TIM_CCMR1_OC2M_2 ;
+	TIM5->CCMR1 |= TIM_CCMR1_OC2PE ;
 	
 	TIM5->CR1 |= TIM_CR1_ARPE ;
 	
@@ -129,14 +131,11 @@ void servo_timers_init() {
 void init_master_timer(){
 	// Master timer controls timing of recipe execution (every 100ms)
 	
-	// Initialize timer with 001 Output Compare Mode
-	// This will set the Timer Output to 1 when Count equals 
-	
 	// Enable Timer 3 clock
 	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
 	
 	// Set prescalar to ?
-	TIM3->PSC = 100 ;
+	TIM3->PSC = 20000 ;
 	
 	// Load new prescalar value by forcing update event.
 	TIM3->EGR |= TIM_EGR_UG;
@@ -156,28 +155,88 @@ void init_master_timer(){
 }
 
 
-void init_servo( Servo *servo ){
+void init_servo( volatile Servo *servo ){
 	
 	servo->recipe_index = 0 ;
 	servo->loop_count = NOT_IN_LOOP ;
 	servo->loop_index = 0 ;
-	servo->is_paused = 1 ;
+	servo->delay_counter = 0 ;
+	servo->status = status_paused ;
+	servo->position = state_position_0 ;
 	
-	start_move( servo, state_position_5 ) ;
+	//start_move( servo, state_position_5 ) ;
 	
 }
 
 
 // Timer 3 interrupt handler
 void TIM3_IRQHandler(void) {
+	unsigned char opcode, param ;
+	
 	// Check if interrupt flag is set
 	if(TIM3->SR & TIM_SR_UIF) { 
 		// Clear interrupt flag
 		TIM3->SR &= ~TIM_SR_UIF ;
 		
+		// Handle user input
+		if( inputString[0] != 0x00 ){
+			process_user_event( servo1, input_char_to_event(inputString[0]) ) ;
+			inputString[0] = 0x00 ;
+		}
 		/*
-		TODO: handle recipe execution here?
+		if( inputString[1] != 0x00 ){
+			process_user_event( servo2, input_char_to_event(inputString[1]) ) ;
+		}
 		*/
+		
+		// Decrement delay counters, if necessary
+		if( servo1->delay_counter > 0 ){
+			servo1->delay_counter-- ;
+		}
+		/*
+		if( servo2->delay_counter > 0 ){
+			servo2->delay_counter-- ;
+		}
+		*/
+		
+		// Process next instruction for each servo, if ready
+		if( servo1->status != status_paused && servo1->delay_counter == 0 && servo1->status != status_ended){
+			opcode = servo1->recipe[servo1->recipe_index] & OPCODE_MASK ;
+			param = servo1->recipe[servo1->recipe_index] & PARAM_MASK ;
+			process_instruction( servo1, opcode, param ) ;
+		}
+		/*
+		if( servo2->status != status_paused && servo2->delay_counter == 0 ){
+			opcode = servo2->recipe[servo2->recipe_index] & OPCODE_MASK ;
+			param = servo2->recipe[servo2->recipe_index] & PARAM_MASK ;
+			process_instruction( servo2, opcode, param ) ;
+		}
+		*/
+		
+		// Handle LED colors for servo1 status
+		switch( servo1->status ){
+			case status_running:
+				Red_LED_Off() ;
+				Green_LED_On() ;
+				break ;
+			case status_paused:
+				Red_LED_Off() ;
+				Green_LED_Off() ;
+				break ;
+			case status_ended:
+				Red_LED_Off() ;
+				Green_LED_Off() ;
+				break ;
+			case status_command_error:
+				Red_LED_On() ;
+				Green_LED_Off() ;
+				break ;
+			case status_nested_error:
+				Red_LED_On() ;
+				Green_LED_On() ;
+				break ;
+		}
+		
 		
 	}
 }
@@ -188,11 +247,14 @@ void TIM3_IRQHandler(void) {
 int main() {
 	
 	char rxByte ;
+	char tempInputBuffer[100] ;
+	int inputBuffIndex ;
 	
-	//int index = 0 ;
+	
+	//Initialize system clock to 80MHz
+	System_Clock_Init() ;
 	
 	//Initialize servo structs
-	Servo *servo1, *servo2 ;
 	init_servo(servo1) ;
 	init_servo(servo2) ;
 	
@@ -201,59 +263,39 @@ int main() {
 	servo1->timer = TIM2 ;
 	servo2->timer = TIM5 ;
 	
-	//Initialize master timer (100ms period)
-	init_master_timer() ;
-	
 	LED_Init( );
 	UART2_Init( );
 	
-	while( recipe1[servo1->recipe_index] != RECIPE_END ) {
-		
-		// Extract op-code and parameter from instruction
-		unsigned char opcode = recipe1[servo1->recipe_index] & OPCODE_MASK ;
-		unsigned char param = recipe1[servo1->recipe_index] & PARAM_MASK ;
-		
-		process_instruction( servo1, opcode, param ) ;
-		
-	}
-	
+	//Initialize master timer (100ms period)
+	init_master_timer() ;
 	
 	while(1){
 		
-		// Print limits and see if user wants to change them
-		sprintf( (char *)buffer, "Enter Command >") ;
-		USART_Write( USART2, buffer, strlen( (char *)buffer ) ) ;
+		//Write prompt for user input to terminal
+		USART_Write( USART2, (uint8_t *)prompt, strlen( prompt ) ) ;
+		
 		rxByte = 0x00 ;
+		inputBuffIndex = 0 ;
 		while(rxByte != 0x0D) { // Wait until user presses enter
 			rxByte = USART_Read( USART2 ) ;
 			USART_Write(USART2, (uint8_t *)&rxByte, 1 ) ;
+			tempInputBuffer[inputBuffIndex] = rxByte ;
+			inputBuffIndex++ ;
 		}
+		
+		// Semaphore before setting inputString? Could have sync issue w/ interrupt handler.
+		
+		// Set global input string to first 2 chars of temp buffer
+		for(inputBuffIndex = 0; inputBuffIndex < 2; inputBuffIndex++){
+			inputString[inputBuffIndex] = tempInputBuffer[inputBuffIndex] ;
+			tempInputBuffer[inputBuffIndex] = 0x00 ; // reset to null char
+		}
+		
+		// Write new line to terminal
 		USART_Write( USART2, (uint8_t *)"\r\n", 2 );
+		
+		// Reset temp char
 		rxByte = 0x00 ;
-		
-		
-		/* pseudocode:
-		get user input
-		if (master_timer->output == 1){
-			process user input
-			
-			decrement servo delay counters
-			
-			if(servo1 is not paused && servo1->delay_counter == 0){
-				process next servo1 instruction
-			}
-			if(servo2 is not paused && servo2->delay_counter == 0){
-				process next servo2 instruction
-			}
-			
-			handle LED's for servo1 status here.
-		
-			clear timer flag
-			
-		}
-		
-		*/
-		
 		
 	}
 	

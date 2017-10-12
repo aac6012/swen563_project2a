@@ -28,24 +28,26 @@ enum events {
 	user_entered_pause,
 	user_entered_continue,
 	user_entered_restart,
-	user_entered_no_op
+	user_entered_no_op,
+	user_entered_invalid
 } ;
 
 
 typedef struct {
 	TIM_TypeDef *timer ;		// The PWM timer in charge of controlling servo output signal
-	int delay_counter ;			// Delay counter used for WAIT and between servo movements
-	int recipe_index ; 			// Current index of the executing recipe
-	int loop_index ;			// Index of the start of a loop
-	unsigned char loop_count ; 	// Number of iterations left in a loop; also indicates not in a loop when equal to NOT_IN_LOOP.
+	uint32_t delay_counter ;			// Delay counter used for WAIT and between servo movements
+	uint32_t recipe_index ; 			// Current index of the executing recipe
+	uint32_t loop_index ;			// Index of the start of a loop
+	uint32_t loop_count ; 	// Number of iterations left in a loop; also indicates not in a loop when equal to NOT_IN_LOOP.
 	enum servo_states position ;// Current position of the servo
 	enum recipe_status status ; // Current status of the recipe being executed on the servo
 	unsigned char *recipe ;		// Recipe being executed by servo
-	int is_paused ;				// If the recipe is paused
 } Servo ;
 
 
-void process_user_event( Servo* servo, enum events one_event ) ;
-void process_instruction( Servo* servo, unsigned char op_code, unsigned char param ) ;
-void start_move( Servo* servo, enum servo_states target_position ) ;
+void process_user_event( volatile Servo* servo, enum events one_event ) ;
+void process_instruction( volatile Servo* servo, unsigned char op_code, unsigned char param ) ;
+void start_move( volatile Servo* servo, enum servo_states target_position ) ;
+enum events input_char_to_event( char inputChar ) ;
 int servo_state_to_int( enum servo_states state ) ;
+enum servo_states servo_int_to_state( int servo_int );
