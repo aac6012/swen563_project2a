@@ -135,7 +135,18 @@ void process_user_event( volatile Servo* servo, enum events one_event ) {
 				servo->status != status_ended  &&
 				servo->status != status_command_error &&
 				servo->status != status_nested_error){
-					
+		
+		servo->status = status_running ;
+		
+	} else if(one_event == user_entered_restart) {
+		// Temporarily stop execution to reset.
+		servo->status = status_paused ;
+		// Reset servo indexes
+		servo->recipe_index = 0 ;
+		servo->delay_counter = 0 ;
+		servo->loop_index = 0 ;
+		servo->loop_count = NOT_IN_LOOP ;
+		// Start recipe again
 		servo->status = status_running ;
 		
 	} else if ( servo->status != status_running) {	// state-dependent events

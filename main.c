@@ -17,7 +17,7 @@
 // in the values for the bottom 5 bits are equivalent. However, using a bitwise
 // or is better at communicating your purpose.
 //unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
-unsigned char recipe1[] = { MOV + 5, WAIT | 1, MOV + 0, END_LOOP, RECIPE_END } ;
+unsigned char recipe1[] = { MOV + 5, WAIT | 30, MOV + 0, RECIPE_END } ;
 unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 
 // If you set up an array like this then you can easily switch recipes
@@ -25,7 +25,9 @@ unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
 
 // Servo structs
-volatile Servo *servo1, *servo2 ;
+volatile Servo servo1_obj = { TIM2, 0, 0, NOT_IN_LOOP, 0, state_position_0, status_paused, recipe1 } ;
+volatile Servo *servo1 = &servo1_obj ;
+//volatile Servo servo2 = { } ;
 
 // UART output messages
 char prompt[] = "Enter Command >" ;
@@ -135,13 +137,15 @@ void init_master_timer(){
 	RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
 	
 	// Set prescalar to ?
+	//TIM3->PSC = 20000 ;
 	TIM3->PSC = 20000 ;
 	
 	// Load new prescalar value by forcing update event.
 	TIM3->EGR |= TIM_EGR_UG;
 	
 	// Set auto reload value
-	TIM3->ARR = 100 ;
+	//TIM3->ARR = 100 ;
+	TIM3->ARR = 200 ;
 	
 	// Enable timer interrupts
 	TIM3->DIER = TIM_DIER_UIE ;
@@ -154,29 +158,17 @@ void init_master_timer(){
 	
 }
 
-
-void init_servo( volatile Servo *servo ){
-	
-	servo->recipe_index = 0 ;
-	servo->loop_count = NOT_IN_LOOP ;
-	servo->loop_index = 0 ;
-	servo->delay_counter = 0 ;
-	servo->status = status_paused ;
-	servo->position = state_position_0 ;
-	
-	//start_move( servo, state_position_5 ) ;
-	
-}
-
-
 // Timer 3 interrupt handler
 void TIM3_IRQHandler(void) {
 	unsigned char opcode, param ;
+	enum recipe_status prev_status ; // used to tell if state changes in interrupt.
 	
 	// Check if interrupt flag is set
 	if(TIM3->SR & TIM_SR_UIF) { 
 		// Clear interrupt flag
 		TIM3->SR &= ~TIM_SR_UIF ;
+		
+		prev_status = servo1->status ;
 		
 		// Handle user input
 		if( inputString[0] != 0x00 ){
@@ -213,30 +205,32 @@ void TIM3_IRQHandler(void) {
 		}
 		*/
 		
-		// Handle LED colors for servo1 status
-		switch( servo1->status ){
-			case status_running:
-				Red_LED_Off() ;
-				Green_LED_On() ;
-				break ;
-			case status_paused:
-				Red_LED_Off() ;
-				Green_LED_Off() ;
-				break ;
-			case status_ended:
-				Red_LED_Off() ;
-				Green_LED_Off() ;
-				break ;
-			case status_command_error:
-				Red_LED_On() ;
-				Green_LED_Off() ;
-				break ;
-			case status_nested_error:
-				Red_LED_On() ;
-				Green_LED_On() ;
-				break ;
+		//Only change LEDs if state has changed.
+		if(prev_status != servo1->status){
+			// Handle LED colors for servo1 status
+			switch( servo1->status ){
+				case status_running:
+					Red_LED_Off() ;
+					Green_LED_On() ;
+					break ;
+				case status_paused:
+					Red_LED_Off() ;
+					Green_LED_Off() ;
+					break ;
+				case status_ended:
+					Red_LED_Off() ;
+					Green_LED_Off() ;
+					break ;
+				case status_command_error:
+					Red_LED_On() ;
+					Green_LED_Off() ;
+					break ;
+				case status_nested_error:
+					Red_LED_On() ;
+					Green_LED_On() ;
+					break ;
+			}		
 		}
-		
 		
 	}
 }
@@ -254,14 +248,14 @@ int main() {
 	//Initialize system clock to 80MHz
 	System_Clock_Init() ;
 	
+	/*
 	//Initialize servo structs
 	init_servo(servo1) ;
 	init_servo(servo2) ;
+	*/
 	
 	//Initialize servo timers
 	servo_timers_init() ;
-	servo1->timer = TIM2 ;
-	servo2->timer = TIM5 ;
 	
 	LED_Init( );
 	UART2_Init( );
