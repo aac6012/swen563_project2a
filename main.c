@@ -17,17 +17,18 @@
 // in the values for the bottom 5 bits are equivalent. However, using a bitwise
 // or is better at communicating your purpose.
 //unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
-unsigned char recipe1[] = { LOOP | 2, MOV + 5, WAIT | 30, MOV + 0, END_LOOP | 0, RECIPE_END } ;
-unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
+unsigned char recipe1[] = { LOOP | 2, MOV | 5, WAIT | 30, MOV | 1, END_LOOP | 0, RECIPE_END } ;
+unsigned char recipe2[] = { LOOP | 2, MOV | 5, WAIT | 20, MOV | 3, WAIT | 20, MOV | 1, WAIT | 20, END_LOOP, RECIPE_END } ;
 
 // If you set up an array like this then you can easily switch recipes
 // using an additional user input command.
 unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
 
 // Servo structs
-volatile Servo servo1_obj = { TIM2, 0, 0, NOT_IN_LOOP, 0, state_position_0, status_paused, recipe1 } ;
+volatile Servo servo1_obj = { TIM2, 0, 0, 0, NOT_IN_LOOP, state_position_2, status_paused, recipe1 } ;
 volatile Servo *servo1 = &servo1_obj ;
-//volatile Servo servo2 = { } ;
+volatile Servo servo2_obj = { TIM5, 0, 0, 0, NOT_IN_LOOP, state_position_2, status_paused, recipe2 } ;
+volatile Servo *servo2 = &servo2_obj ;
 
 // UART output messages
 char prompt[] = "Enter Command >" ;
@@ -83,7 +84,7 @@ void servo_timers_init() {
 	TIM2->CR1 |= TIM_CR1_CEN ;
 	
 	//Initialize with 2% duty cycle
-	TIM2->CCR1 = DUTY_CYCLE * (0.02) ;
+	TIM2->CCR1 = DUTY_CYCLE * (0.06) ;
 	
 	/**
 	* GPIO PA1 / TIM5 setup
@@ -125,7 +126,7 @@ void servo_timers_init() {
 	TIM5->CR1 |= TIM_CR1_CEN ;
 	
 	//Initialize with 2% duty cycle
-	TIM5->CCR2 = DUTY_CYCLE * (0.02) ;
+	TIM5->CCR2 = DUTY_CYCLE * (0.06) ;
 	
 }
 
@@ -174,21 +175,20 @@ void TIM3_IRQHandler(void) {
 			process_user_event( servo1, input_char_to_event(inputString[0]) ) ;
 			inputString[0] = 0x00 ;
 		}
-		/*
 		if( inputString[1] != 0x00 ){
 			process_user_event( servo2, input_char_to_event(inputString[1]) ) ;
+			inputString[1] = 0x00 ;
 		}
-		*/
+		
 		
 		// Decrement delay counters, if necessary
 		if( servo1->delay_counter > 0 ){
 			servo1->delay_counter-- ;
 		}
-		/*
 		if( servo2->delay_counter > 0 ){
 			servo2->delay_counter-- ;
 		}
-		*/
+		
 		
 		// Process next instruction for each servo, if ready
 		if( servo1->status != status_paused && servo1->delay_counter == 0 && servo1->status != status_ended){
@@ -196,13 +196,12 @@ void TIM3_IRQHandler(void) {
 			param = servo1->recipe[servo1->recipe_index] & PARAM_MASK ;
 			process_instruction( servo1, opcode, param ) ;
 		}
-		/*
 		if( servo2->status != status_paused && servo2->delay_counter == 0 ){
 			opcode = servo2->recipe[servo2->recipe_index] & OPCODE_MASK ;
 			param = servo2->recipe[servo2->recipe_index] & PARAM_MASK ;
 			process_instruction( servo2, opcode, param ) ;
 		}
-		*/
+		
 		
 		//Only change LEDs if state has changed.
 		if(prev_status != servo1->status){

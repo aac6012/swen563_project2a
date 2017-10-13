@@ -15,7 +15,9 @@ void start_move( volatile Servo* servo, enum servo_states target_position ){
 	servo->delay_counter = 2*offset ;
 	
 	// change pwm duty cycle
+	// Setting both Compare registers b/c TIM2 uses CCR1, but TIM5 uses CCR2 (yes, it's a workaround)
 	servo->timer->CCR1 = DUTY_CYCLE * (0.02 * ( 1 + servo_state_to_int(target_position) ) ) ;
+	servo->timer->CCR2 = DUTY_CYCLE * (0.02 * ( 1 + servo_state_to_int(target_position) ) ) ; 
 	
 	// set new state
 	servo->position = target_position ;
