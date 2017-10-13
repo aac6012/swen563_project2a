@@ -1,5 +1,3 @@
-// L. Kiser Feb. 16, 2017
-// Some ideas for writing the SWEN 563 recipe related code.
 
 #include "stm32l476xx.h"
 #include "SysClock.h"
@@ -12,17 +10,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Examples of simple recipes
-// Note that, because the bottom 5 bits are zeros adding or bitwise or'ing
-// in the values for the bottom 5 bits are equivalent. However, using a bitwise
-// or is better at communicating your purpose.
+//Definition of recipes
 //unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
 unsigned char recipe1[] = { LOOP | 2, MOV | 5, WAIT | 30, MOV | 1, END_LOOP | 0, RECIPE_END } ;
 unsigned char recipe2[] = { LOOP | 2, MOV | 5, WAIT | 20, MOV | 3, WAIT | 20, MOV | 1, WAIT | 20, END_LOOP, RECIPE_END } ;
-
-// If you set up an array like this then you can easily switch recipes
-// using an additional user input command.
-unsigned char *recipes[] = { recipe1, recipe2, NULL } ;
 
 // Servo structs
 volatile Servo servo1_obj = { TIM2, 0, 0, 0, NOT_IN_LOOP, state_position_2, status_paused, recipe1 } ;
@@ -274,8 +265,6 @@ int main() {
 			tempInputBuffer[inputBuffIndex] = rxByte ;
 			inputBuffIndex++ ;
 		}
-		
-		// Semaphore before setting inputString? Could have sync issue w/ interrupt handler.
 		
 		// Set global input string to first 2 chars of temp buffer
 		for(inputBuffIndex = 0; inputBuffIndex < 2; inputBuffIndex++){
