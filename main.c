@@ -17,7 +17,7 @@
 // in the values for the bottom 5 bits are equivalent. However, using a bitwise
 // or is better at communicating your purpose.
 //unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
-unsigned char recipe1[] = { MOV + 5, WAIT | 30, MOV + 0, RECIPE_END } ;
+unsigned char recipe1[] = { LOOP | 2, MOV + 5, WAIT | 30, MOV + 0, END_LOOP | 0, RECIPE_END } ;
 unsigned char recipe2[] = { MOV | 5, MOV | 2, RECIPE_END } ;
 
 // If you set up an array like this then you can easily switch recipes
@@ -109,15 +109,14 @@ void servo_timers_init() {
 	// Load new prescalar value by forcing update event.
 	TIM5->EGR |= TIM_EGR_UG;
 	
-	// Set the input mode of the Timer (Input, CC1 is mapped to timer input 1)
-	//TIM5->CCMR1 |= TIM_CCMR1_OC1M_1 | TIM_CCMR1_OC1M_2 ;
-	TIM5->CCMR1 |= TIM_CCMR1_OC2M_2 | TIM_CCMR1_OC2M_2 ;
+	// Set the mode of the Timer
+	TIM5->CCMR1 |= TIM_CCMR1_OC2M_1 | TIM_CCMR1_OC2M_2 ;
 	TIM5->CCMR1 |= TIM_CCMR1_OC2PE ;
 	
 	TIM5->CR1 |= TIM_CR1_ARPE ;
 	
 	// Enable input capture
-	TIM5->CCER |= TIM_CCER_CC1E ;
+	TIM5->CCER |= TIM_CCER_CC2E ;
 	
 	// Clear update flag
 	TIM5->SR &= ~TIM_SR_UIF ;
@@ -126,7 +125,7 @@ void servo_timers_init() {
 	TIM5->CR1 |= TIM_CR1_CEN ;
 	
 	//Initialize with 2% duty cycle
-	TIM5->CCR1 = DUTY_CYCLE * (0.02) ;
+	TIM5->CCR2 = DUTY_CYCLE * (0.02) ;
 	
 }
 

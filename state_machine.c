@@ -32,7 +32,7 @@ void process_instruction( volatile Servo* servo, unsigned char op_code, unsigned
 	switch(op_code){
 		case MOV:
 			if (param > 5){
-				//error
+				servo->status = status_command_error ;
 			} else{
 				// Set duty cycle to match specified position
 				start_move( servo, servo_int_to_state(param) ) ;
@@ -41,7 +41,7 @@ void process_instruction( volatile Servo* servo, unsigned char op_code, unsigned
 			break ;
 		case WAIT:
 			if(param > 31){
-				//error
+				servo->status = status_command_error ;
 			} else{
 				
 				// master recipe timer is at 100ms, so 1 wait command = 1 timer cycle
@@ -52,9 +52,9 @@ void process_instruction( volatile Servo* servo, unsigned char op_code, unsigned
 			break ;
 		case LOOP:
 			if(servo->loop_count != NOT_IN_LOOP ){
-				// nested loop error
+				servo->status = status_nested_error ;
 			} else if (param > 31){
-				// param error
+				servo->status = status_command_error ;
 			} else{
 				servo->loop_count = param ;
 				servo->recipe_index++ ;
@@ -63,7 +63,7 @@ void process_instruction( volatile Servo* servo, unsigned char op_code, unsigned
 			break ;
 		case END_LOOP:
 			if( servo->loop_count == NOT_IN_LOOP ){
-				// end_loop without loop
+				servo->status = status_command_error ;
 			} else if( servo->loop_count != 0 ){
 				servo->recipe_index = servo->loop_index ;
 				servo->loop_count -- ;
@@ -149,7 +149,7 @@ void process_user_event( volatile Servo* servo, enum events one_event ) {
 		// Start recipe again
 		servo->status = status_running ;
 		
-	} else if ( servo->status != status_running) {	// state-dependent events
+	} else if ( servo->status != status_running ) {	// state-dependent events
 		
 		switch ( servo->position ) {
 			case state_position_0 :		// right-most position
@@ -192,7 +192,6 @@ void process_user_event( volatile Servo* servo, enum events one_event ) {
 				break ;
 			case state_unknown :
 			default:
-				start_move( servo, state_position_0 ) ;
 				break ;
 		}
 		
