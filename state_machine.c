@@ -77,6 +77,7 @@ void process_instruction( volatile Servo* servo, unsigned char op_code, unsigned
 			break ;
 		case RECIPE_END:
 			servo->status = status_ended ;
+		  servo->recipe_index++ ;
 			break ;
 	}
 	
@@ -134,7 +135,6 @@ void process_user_event( volatile Servo* servo, enum events one_event ) {
 		servo->status = status_paused ;
 			
 	} else if(one_event == user_entered_continue &&
-				servo->status != status_ended  &&
 				servo->status != status_command_error &&
 				servo->status != status_nested_error){
 		

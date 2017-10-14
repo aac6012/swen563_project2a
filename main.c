@@ -10,10 +10,35 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-//Definition of recipes
-//unsigned char recipe1[] = { MOV + 3, MOV | 5, RECIPE_END } ;
+// Simple recipes
 unsigned char recipe1[] = { LOOP | 2, MOV | 5, WAIT | 30, MOV | 1, END_LOOP | 0, RECIPE_END } ;
 unsigned char recipe2[] = { LOOP | 2, MOV | 5, WAIT | 20, MOV | 3, WAIT | 20, MOV | 1, WAIT | 20, END_LOOP, RECIPE_END } ;
+
+// Demo recipe from project description
+unsigned char demoRecipe[] = { 
+	MOV|0, MOV|5, MOV|0, MOV|3, LOOP|0, MOV|1, MOV|4,
+	END_LOOP, MOV|0, MOV|2, WAIT|0, MOV|3, WAIT|0,
+	MOV|2, MOV|3, WAIT|31, WAIT|31, WAIT|31, MOV|4, RECIPE_END
+} ;
+
+// Test all servo positions
+unsigned char allPositionsRecipe[] = {
+	MOV|5, WAIT|10, MOV|4, WAIT|10, MOV|3, WAIT|10,
+	MOV|2, WAIT|10, MOV|1, WAIT|10, MOV|0, WAIT|10, RECIPE_END
+} ;
+
+// Test the ability to manually override RECIPE_END to execute any instructions after it.
+unsigned char continueOverrideRecipe[] =	{
+	MOV|3, WAIT|30, LOOP|3, MOV|5, MOV|0, 
+	END_LOOP, RECIPE_END, MOV|3
+} ;
+
+// Intentionally produce error with MOV|6
+unsigned char errorRecipe[] = {
+	MOV|0, WAIT|5, MOV|3, WAIT|5, MOV|5,
+	LOOP|1, MOV|3, MOV|6, MOV|0, END_LOOP, RECIPE_END
+} ;
+
 
 // Servo structs
 volatile Servo servo1_obj = { TIM2, 0, 0, 0, NOT_IN_LOOP, state_position_2, status_paused, recipe1 } ;
